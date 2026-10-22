@@ -1,0 +1,6 @@
+import { useState } from 'react';
+import { savePopup } from '../../services/api';
+export default function PopupEditor({ tenant, onSaved }) {
+ const [popup,setPopup]=useState(tenant.popup||{enabled:false,title:'',message:''});const [busy,setBusy]=useState(false);const [message,setMessage]=useState('');
+ return <form className="form admin-panel" onSubmit={async e=>{e.preventDefault();setBusy(true);try{await savePopup(tenant.id,popup);setMessage('Aviso atualizado.');onSaved();}catch(err){setMessage(err.message);}finally{setBusy(false);}}}><h2>Um recado para quem chega</h2><p className="muted">Promoções, férias ou novidades. O aviso aparece uma vez por sessão, a cada alteração.</p><label className="checkbox-label"><input type="checkbox" checked={popup.enabled} onChange={e=>setPopup({...popup,enabled:e.target.checked})}/>Ativar aviso na abertura</label><label>Título<input required maxLength={100} value={popup.title} onChange={e=>setPopup({...popup,title:e.target.value})}/></label><label htmlFor="popup-message">Mensagem</label><textarea id="popup-message" aria-label="Mensagem" required rows={4} maxLength={800} value={popup.message} onChange={e=>setPopup({...popup,message:e.target.value})}/><button disabled={busy} className="button primary">{busy?'Salvando…':'Salvar aviso'}</button>{message&&<p role="status">{message}</p>}</form>;
+}

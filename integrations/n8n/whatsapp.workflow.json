@@ -1,0 +1,555 @@
+{
+  "name": "SafeReserve · WhatsApp via Chatwoot (configurar antes de ativar)",
+  "nodes": [
+    {
+      "id": "booking-webhook",
+      "name": "Booking webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "safereserve-booking",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "validate-event",
+      "name": "Validate event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const event=$json.body;\nconst allowed=['Agendamento_Criado','Agendamento_Alterado','Agendamento_Cancelado','Lembrete_Agendamento','Lista_Espera_Disponivel'];\nif(!event||!allowed.includes(event.event)||!event.event_id||!event.tenant_id||event.data?.tenant_id!==event.tenant_id)throw new Error('Invalid event');\nif(!/^\\+[1-9][0-9]{9,14}$/.test(event.data.phone)||typeof event.data.name!=='string')throw new Error('Invalid contact');\nconst tenants=JSON.parse($vars.SAFERESERVE_TENANTS||'{}');\nconst config=tenants[event.tenant_id];\nif(!config||!config.account_id||!config.inbox_id||!config.chatwoot_origin||!config.booking_url)throw new Error('Tenant is not configured');\nconst origin=new URL(config.chatwoot_origin);if(origin.protocol!=='https:'||origin.pathname!=='/'||origin.username||origin.password)throw new Error('Invalid Chatwoot origin');\nconst template=config.templates?.[event.event];if(!template?.name||!Array.isArray(template.parameters))throw new Error('Approved template missing');\nconst date=event.data.starts_at?new Date(event.data.starts_at):null;\nconst variables={name:event.data.name,studio:config.name,booking_url:config.booking_url,date:date?new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeZone:config.timezone}).format(date):'',time:date?new Intl.DateTimeFormat('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:config.timezone}).format(date):''};\nconst body={};template.parameters.forEach((name,i)=>{if(!(name in variables))throw new Error('Invalid template variable');body[String(i+1)]=variables[name];});\nconst message={content:`${event.data.name}, há uma atualização do seu agendamento no ${config.name}. ${config.booking_url}`,message_type:'outgoing',private:false,content_attributes:{safereserve_event_id:event.event_id},template_params:{name:template.name,category:template.category||'UTILITY',language:template.language||'pt_BR',processed_params:{body}}};\nreturn [{json:{...event,phone:event.data.phone,config,api:`${origin.origin}/api/v1/accounts/${Number(config.account_id)}`,message}}];"
+      }
+    },
+    {
+      "id": "search-contact",
+      "name": "Search contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.api + '/contacts/search' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.phone }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "pick-contact",
+      "name": "Pick contact",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const event=$('Validate event').first().json;const contacts=$json.payload||[];const contact=contacts.find(c=>c.phone_number===event.phone);return [{json:{...event,contactId:contact?.id||null}}];"
+      }
+    },
+    {
+      "id": "contact-exists",
+      "name": "Contact exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Contact exists",
+              "leftValue": "={{ Boolean($json.contactId) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "create-contact",
+      "name": "Create contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        160
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.api + '/contacts' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {name: $json.data.name, phone_number: $json.phone, inbox_id: Number($json.config.inbox_id)} }}"
+      }
+    },
+    {
+      "id": "resolve-contact",
+      "name": "Resolve contact",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const event=$('Pick contact').first().json;const id=event.contactId||$json.payload?.contact?.id||$json.payload?.id;if(!id)throw new Error('Contact ID missing');return [{json:{...event,contactId:id}}];"
+      }
+    },
+    {
+      "id": "list-conversations",
+      "name": "List conversations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.api + '/contacts/' + $json.contactId + '/conversations' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "pick-conversation",
+      "name": "Pick conversation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const event=$('Resolve contact').first().json;const list=$json.payload||[];const conversation=list.find(c=>Number(c.inbox_id)===Number(event.config.inbox_id)&&c.status!=='resolved');return [{json:{...event,conversationId:conversation?.id||null}}];"
+      }
+    },
+    {
+      "id": "conversation-exists",
+      "name": "Conversation exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Conversation exists",
+              "leftValue": "={{ Boolean($json.conversationId) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "create-conversation",
+      "name": "Create conversation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        160
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.api + '/conversations' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {contact_id: $json.contactId, inbox_id: Number($json.config.inbox_id), status: 'open'} }}"
+      }
+    },
+    {
+      "id": "resolve-conversation",
+      "name": "Resolve conversation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const event=$('Pick conversation').first().json;const id=event.conversationId||$json.id||$json.payload?.id;if(!id)throw new Error('Conversation ID missing');return [{json:{...event,conversationId:id}}];"
+      }
+    },
+    {
+      "id": "recent-messages",
+      "name": "Recent messages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.api + '/conversations/' + $json.conversationId + '/messages' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "check-recent-duplicate",
+      "name": "Check recent duplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const event=$('Resolve conversation').first().json;const list=$json.payload||[];return [{json:{...event,alreadySent:list.some(m=>m.content_attributes?.safereserve_event_id===event.event_id)}}];"
+      }
+    },
+    {
+      "id": "already-sent",
+      "name": "Already sent",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Already sent",
+              "leftValue": "={{ $json.alreadySent }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "send-whatsapp-template",
+      "name": "Send WhatsApp template",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3300,
+        160
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.api + '/conversations/' + $json.conversationId + '/messages' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.message }}"
+      }
+    },
+    {
+      "id": "acknowledge",
+      "name": "Acknowledge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3520,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"accepted\": true}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Booking webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate event": {
+      "main": [
+        [
+          {
+            "node": "Search contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search contact": {
+      "main": [
+        [
+          {
+            "node": "Pick contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick contact": {
+      "main": [
+        [
+          {
+            "node": "Contact exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create contact": {
+      "main": [
+        [
+          {
+            "node": "Resolve contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve contact": {
+      "main": [
+        [
+          {
+            "node": "List conversations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List conversations": {
+      "main": [
+        [
+          {
+            "node": "Pick conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick conversation": {
+      "main": [
+        [
+          {
+            "node": "Conversation exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create conversation": {
+      "main": [
+        [
+          {
+            "node": "Resolve conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve conversation": {
+      "main": [
+        [
+          {
+            "node": "Recent messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recent messages": {
+      "main": [
+        [
+          {
+            "node": "Check recent duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check recent duplicate": {
+      "main": [
+        [
+          {
+            "node": "Already sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp template": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact exists": {
+      "main": [
+        [
+          {
+            "node": "Resolve contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation exists": {
+      "main": [
+        [
+          {
+            "node": "Resolve conversation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already sent": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send WhatsApp template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none"
+  },
+  "pinData": {},
+  "tags": []
+}

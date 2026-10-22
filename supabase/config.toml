@@ -1,0 +1,4 @@
+project_id = "safereserve"
+[functions.integration-worker]
+verify_jwt = false
+# Handler verifies its own high-entropy WORKER_SECRET. Invoke only from trusted cron.

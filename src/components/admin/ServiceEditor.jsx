@@ -1,0 +1,8 @@
+import { useState } from 'react';
+import { Save } from 'lucide-react';
+import { saveService } from '../../services/api';
+export default function ServiceEditor({ tenantId, service, onSaved }) {
+  const [draft,setDraft]=useState(service);const [price,setPrice]=useState(String(service.price/100));const [busy,setBusy]=useState(false);const [message,setMessage]=useState('');
+  const save=async e=>{e.preventDefault();setBusy(true);setMessage('');try{await saveService(tenantId,{...draft,price:Math.round(Number(price)*100)});setMessage('Serviço atualizado.');onSaved();}catch(err){setMessage(err.message);}finally{setBusy(false);}};
+  return <form className="admin-service form" onSubmit={save}><label>Serviço<input required value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></label><div className="form-row"><label>Preço (R$)<input type="number" required min="0" max="100000" step="0.01" value={price} onChange={e=>setPrice(e.target.value)}/></label><label>Duração (min)<input type="number" required min="15" max="480" step="15" value={draft.duration} onChange={e=>setDraft({...draft,duration:Number(e.target.value)})}/></label></div><label>Descrição<input required maxLength={200} value={draft.description||''} onChange={e=>setDraft({...draft,description:e.target.value})}/></label><label>URL da foto (HTTPS)<input type="url" pattern="https://.*" placeholder="https://…" value={draft.photo_url||''} onChange={e=>setDraft({...draft,photo_url:e.target.value})}/></label><button disabled={busy} className="button secondary"><Save size={16}/> {busy?'Salvando…':'Salvar serviço'}</button>{message&&<p role="status">{message}</p>}</form>;
+}
