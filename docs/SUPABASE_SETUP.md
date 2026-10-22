@@ -6,7 +6,7 @@ Projeto: `cgmylsxrjzovgwyrncyv`. Configuração aplicada em 22/10/2026 pela API 
 
 A migration `202610220001_initial.sql` foi aplicada em uma transação, juntamente com o seed do catálogo inicial. O histórico foi registrado em `supabase_migrations.schema_migrations`, versão `202610220001`, nome `initial`.
 
-Foram confirmadas 11 tabelas com Row Level Security habilitado: `tenants`, `memberships`, `services`, `professionals`, `professional_services`, `customers`, `bookings`, `time_blocks`, `waitlist`, `products` e `integration_outbox`. Há 15 políticas e 12 funções públicas da aplicação, incluindo o provisionamento autenticado de novas lojas. A extensão `btree_gist` suporta a constraint que impede sobreposição de horários.
+Foram confirmadas 11 tabelas com Row Level Security habilitado: `tenants`, `memberships`, `services`, `professionals`, `professional_services`, `customers`, `bookings`, `time_blocks`, `waitlist`, `products` e `integration_outbox`. Há 15 políticas públicas e 13 funções públicas da aplicação, incluindo o provisionamento autenticado de novas lojas. A extensão `btree_gist` suporta a constraint que impede sobreposição de horários.
 
 O catálogo contém um estabelecimento inicial fictício (Studio Aurora), seis serviços e três profissionais. Ele é um ponto de partida, não representa dados reais de uma empresa. Personalize-o antes de divulgar o link. Nenhum cliente ou agendamento de teste foi persistido.
 
@@ -38,3 +38,12 @@ A migration `202610220002_owner_onboarding.sql` foi aplicada e registrada. A fun
 A página inicial agora é da plataforma. `/cadastro` e `/entrar` permitem acessar `/painel` e `/criar-loja`. Cada loja criada tem um endereço `/<slug>` independente do hostname, e o painel permite copiá-lo. `/demonstracao` é local e reservado; nunca aponta para uma loja real.
 
 Os retornos Auth para `https://safereserve-*-danielrgis-projects.vercel.app` e subrotas foram adicionados preservando os anteriores e a confirmação de e-mail. O deploy Vercel precisa receber separadamente as variáveis públicas Supabase; as variáveis da máquina cloud não são transmitidas ao host. As credenciais externas n8n/WhatsApp/Google e SMTP continuam sendo configurações independentes.
+
+
+## Layout por loja
+
+A migration `202610220003_storefront_appearance.sql` foi aplicada e registrada. A coluna `tenants.appearance` guarda escolhas estruturadas: modelo, cores, tipografia, imagens, textos e visibilidade de seções. A constraint rejeita campos desconhecidos, cores inválidas, tipos incorretos e links inseguros; nenhum HTML ou CSS livre é executado. O grant de edição da coluna continua sujeito à política RLS de administrador do tenant.
+
+Foi criado o bucket **público** `storefront-media`, limitado a JPG/PNG/WebP de 5 MB por arquivo. Três políticas restringem insert/select/delete de objetos autenticados ao administrador da loja cujo UUID inicia o caminho; URLs públicas são destinadas às imagens de apresentação. O aplicativo gera nomes únicos e não sobrescreve arquivos. Imagens substituídas ficam disponíveis para limpeza posterior, evitando quebrar uma versão ainda publicada.
+
+Validação: suíte SQL isolada com dois administradores e tenants distintos, tentativa de edição/upload cruzados, edição anônima e entradas inválidas; escrita autenticada no projeto real foi testada com rollback, preservando a identidade existente. Bucket, coluna, políticas e histórico foram confirmados no projeto. A publicação no front-end depende do novo build/deploy na Vercel.

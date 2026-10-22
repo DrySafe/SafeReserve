@@ -3,7 +3,7 @@ test('mobile guest booking, admin cancellation and popup configuration',async({p
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('/demonstracao');await expect(page.getByRole('heading',{name:'Um cuidado. Uma pausa. Um tempo seu.'})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await page.getByRole('button',{name:'Ativar tema claro'}).click();await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+ await page.getByRole('button',{name:'Ativar tema claro'}).click();await expect(page.locator('.storefront')).toHaveAttribute('data-mode','light');
  await page.getByRole('button',{name:/Corte & finalização/}).click();
  await expect(page.getByRole('button',{name:/Marina Costa/})).toBeVisible();await expect(page.getByRole('button',{name:/Júlia Lima/})).toHaveCount(0);
  await page.getByRole('button',{name:/Marina Costa/}).click();

@@ -7,11 +7,11 @@ cleanup() { docker_local rm -f "$container_name" >/dev/null; }
 trap cleanup EXIT
 docker_local run --detach --name "$container_name" -e POSTGRES_HOST_AUTH_METHOD=trust postgres:17-alpine >/dev/null
 for attempt in {1..30}; do
- if docker_local exec "$container_name" pg_isready -U postgres >/dev/null; then break; fi
+ if docker_local exec "$container_name" pg_isready -h 127.0.0.1 -U postgres >/dev/null; then break; fi
  sleep 1
 done
-for sql in tests/sql/bootstrap.sql supabase/migrations/*.sql supabase/seed.sql tests/sql/security.sql tests/sql/onboarding.sql; do
- docker_local exec -i "$container_name" psql -q -U postgres -v ON_ERROR_STOP=1 < "$sql"
+for sql in tests/sql/bootstrap.sql supabase/migrations/*.sql supabase/seed.sql tests/sql/security.sql tests/sql/onboarding.sql tests/sql/appearance.sql; do
+ docker_local exec -i "$container_name" psql -h 127.0.0.1 -q -U postgres -v ON_ERROR_STOP=1 < "$sql"
 done
 
 # Separate transactions compete for the same slot. Exactly one must commit.
@@ -26,9 +26,9 @@ select public.create_booking(
  (select (d::date+time '10:00') at time zone 'America/Sao_Paulo' from generate_series(current_date+1,current_date+7,interval '1 day') d where extract(dow from d) between 1 and 6 limit 1),
  'Concurrency test','+5511666666666',gen_random_uuid());
 SQL
-docker_local exec -i "$container_name" psql -q -U postgres -v ON_ERROR_STOP=1 < "$work_dir/reserve.sql" > "$work_dir/one.log" 2>&1 &
+docker_local exec -i "$container_name" psql -h 127.0.0.1 -q -U postgres -v ON_ERROR_STOP=1 < "$work_dir/reserve.sql" > "$work_dir/one.log" 2>&1 &
 one_pid=$!
-docker_local exec -i "$container_name" psql -q -U postgres -v ON_ERROR_STOP=1 < "$work_dir/reserve.sql" > "$work_dir/two.log" 2>&1 &
+docker_local exec -i "$container_name" psql -h 127.0.0.1 -q -U postgres -v ON_ERROR_STOP=1 < "$work_dir/reserve.sql" > "$work_dir/two.log" 2>&1 &
 two_pid=$!
 one_status=0; two_status=0
 wait "$one_pid" || one_status=$?
@@ -38,6 +38,6 @@ if ! { [ "$one_status" -eq 0 ] && [ "$two_status" -eq 3 ]; } && ! { [ "$one_stat
  echo 'FAIL: expected exactly one concurrent reservation' >&2
  exit 1
 fi
-count=$(docker_local exec "$container_name" psql -qAt -U postgres -c 'select count(*) from public.bookings;')
+count=$(docker_local exec "$container_name" psql -h 127.0.0.1 -qAt -U postgres -c 'select count(*) from public.bookings;')
 [ "$count" = 1 ] || { echo 'FAIL: concurrent reservation count'; exit 1; }
 echo 'PASS: concurrent reservation requests commit exactly one booking.'

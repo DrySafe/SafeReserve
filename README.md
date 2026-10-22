@@ -20,7 +20,7 @@ Rotas: `/` (plataforma), `/cadastro`, `/entrar`, `/painel` (minhas lojas), `/cri
 
 As opções `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` foram adicionadas ao rascunho do ambiente. A URL informada é `https://cgmylsxrjzovgwyrncyv.supabase.co`.
 
-1. **Este projeto já foi configurado:** as migrations `202610220001_initial.sql` e `202610220002_owner_onboarding.sql` foram aplicadas. Veja `docs/SUPABASE_SETUP.md`; não reaplique a migration. Somente para um projeto novo, aplique a migration pelo SQL Editor ou CLI e, opcionalmente, `supabase/seed.sql`.
+1. **Este projeto já foi configurado:** as migrations `202610220001_initial.sql`, `202610220002_owner_onboarding.sql` e `202610220003_storefront_appearance.sql` foram aplicadas. Veja `docs/SUPABASE_SETUP.md`; não reaplique a migration. Somente para um projeto novo, aplique a migration pelo SQL Editor ou CLI e, opcionalmente, `supabase/seed.sql`.
 2. Nas configurações do ambiente, preencha `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` com a **publishable key** (`sb_publishable_…`) ou a chave pública legada `anon` do projeto. Localmente, copie `.env.example` para `.env.local` e preencha as duas variáveis. Não coloque valores em commits ou no chat.
 3. Reinicie o Vite após preencher as variáveis. Para produção, execute um novo `npm run build`: Vite incorpora variáveis públicas no build. Essas duas opções são públicas por definição; a proteção é feita por RLS. **Nunca use `service_role` ou `sb_secret_…` no front-end.**
 4. Para criar sua própria loja, abra `/cadastro`, confirme o e-mail, entre e escolha **Criar uma loja**. O banco cria atomicamente a loja, a membership admin do usuário autenticado, o primeiro serviço e o profissional. O link exclusivo aparece no painel para copiar. Não há escolha de `user_id` ou de papéis no navegador. Para adicionar um administrador a uma loja já existente, o proprietário do banco pode usar:
@@ -31,6 +31,17 @@ values ('UUID-DO-TENANT', 'UUID-DO-USUARIO-AUTH', 'admin');
 ```
 
 O cadastro de conta sozinho nunca atribui papel admin. A função autenticada `create_tenant` atribui admin somente ao criador, exclusivamente na loja que está criando; não concede acesso a outros estabelecimentos. Links são únicos, rotas como `admin` e `demonstracao` são reservadas e a criação suporta repetição sem duplicar a loja. Há um limite de 10 lojas administradas por conta. Configure Site URL, URLs de redirecionamento, confirmação de e-mail e SMTP do Supabase Auth. O upsell pós-reserva usa e-mail e senha (mínimo 8 caracteres); não exige cadastro para reservar. Vinculação automática de uma reserva guest a uma conta posterior exige prova de titularidade e não é feita usando só o telefone.
+
+## Layout e identidade de cada loja
+
+No painel `/:tenant/admin`, abra **Layout**. Há cinco modelos com composições diferentes: Essência, Barber Club, Ateliê, Pop Studio e Direto ao ponto. Escolha um como base e personalize pelas abas **Identidade**, **Textos** e **Apresentação**. Trocar de modelo preserva imagens e textos já personalizados.
+
+- Oito paletas e cores próprias, quatro estilos de fonte, tema inicial claro/escuro/dispositivo, fundos, cantos e espaçamento. Textos e botões recebem contraste calculado para a cor escolhida.
+- Logo e capa enviados como JPG, PNG ou WebP até 5 MB, comprimidos no navegador; também é possível usar URL HTTPS. Imagens inválidas na página pública recebem uma ilustração ou monograma de fallback.
+- Título, descrição, botão, mensagem final, Instagram e WhatsApp da loja; serviços em cartões ou lista; controle das seções e da escolha de profissional. Ao ocultar profissionais, a disponibilidade considera a equipe compatível automaticamente.
+- Prévia isolada em celular/computador. As alterações são publicadas somente em **Salvar layout**; **Desfazer** retorna à última versão salva. A demonstração salva apenas nesta sessão.
+
+As escolhas ficam em `tenants.appearance`, com validação de estrutura e RLS admin por loja. O bucket público `storefront-media` armazena apenas imagens de apresentação; envio, listagem e exclusão exigem administração do tenant no prefixo do arquivo. Não envie conteúdo privado. A identidade é aplicada dentro da página da loja, e a preferência de tema do visitante é independente por estabelecimento. O link exclusivo permanece `/<slug>`.
 
 ## Permissão para criar o banco pelo ambiente cloud
 
@@ -78,7 +89,8 @@ O build é servido com `npm run preview -- --port 4173` para validação interna
 ```text
 src/components/ui/       Modal, instalação PWA
 src/components/booking/  serviços, profissionais, horários e checkout
-src/components/admin/    serviços, produtos, popup e reagendamento
+src/components/admin/    serviços, produtos, popup, layout e reagendamento
+src/components/storefront/ identidade pública, capa e prévia do editor
 src/hooks/               useTenant, useBooking, useTheme
 src/services/            Supabase, API, eventos n8n e link Google
 src/pages/business/      plataforma, cadastro/login, minhas lojas e criação

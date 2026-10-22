@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, LogOut, CalendarDays, Scissors, Megaphone, LayoutDashboard } from 'lucide-react';
+import { ArrowLeft, LogOut, CalendarDays, Scissors, Megaphone, LayoutDashboard, Palette } from 'lucide-react';
 import { supabase, unwrap } from '../../services/supabase';
 import { adminBookings, updateBooking } from '../../services/api';
 import { money, dateKey } from '../../lib/availability';
@@ -11,6 +11,7 @@ import PopupEditor from '../../components/admin/PopupEditor';
 import ProductsEditor from '../../components/admin/ProductsEditor';
 import RescheduleModal from '../../components/admin/RescheduleModal';
 import ShopLink from '../../components/admin/ShopLink';
+import AppearanceEditor from '../../components/admin/AppearanceEditor';
 export default function AdminPage() {
   const { data:studio, slug, error, isPending, demo: isDemo }=useTenant();const [session,setSession]=useState(null);const [authReady,setAuthReady]=useState(isDemo||!supabase);const [demoAccess,setDemoAccess]=useState(false);
   const [rescheduling,setRescheduling]=useState(null);
@@ -26,8 +27,9 @@ export default function AdminPage() {
   if(!authorized)return <main className="login-page"><Link className="text-button" to={`/${slug}`}><ArrowLeft size={16}/> Voltar ao agendamento</Link><div className="login-card"><span className="eyebrow">SEU NEGÓCIO, BEM CUIDADO</span><h1>Olá, profissional.</h1><p className="muted">Entre para cuidar da sua agenda e do seu espaço.</p>{isDemo?<><p className="notice">Área de demonstração. Os dados ficam apenas nesta sessão do navegador.</p><button className="button primary full" onClick={()=>setDemoAccess(true)}>Explorar painel de demonstração <ArrowLeft size={16}/></button></>:session?<><p role="status">{membership.isPending?'Validando seu acesso…':membership.isError?'Não foi possível verificar sua permissão.':'Esta conta não tem acesso administrativo a este estabelecimento.'}</p><button className="button secondary" onClick={()=>supabase.auth.signOut()}>Sair</button></>:<form className="form" onSubmit={login}><label>E-mail<input type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Senha<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/></label><button className="button primary" disabled={busy}>{busy?'Entrando…':'Entrar no meu espaço'}</button></form>}{message&&<p role="alert" className="notice">{message}</p>}</div></main>;
   const all=bookings.data||[]; const today=dateKey(new Date(),studio.tenant.timezone);const todayBookings=all.filter(b=>dateKey(new Date(b.starts_at),studio.tenant.timezone)===today&&b.status==='confirmed');
   return <main className="admin-page"><Link className="text-button" to={`/${slug}`}><ArrowLeft size={16}/> Ver página de agendamento</Link><div className="admin-heading"><div><span className="eyebrow">ESPAÇO PROFISSIONAL {isDemo?'· DEMONSTRAÇÃO':''}</span><h1>{studio.tenant.name}</h1><p className="muted">Os detalhes do seu negócio, em um só lugar.</p></div><button className="button secondary" onClick={()=>isDemo?setDemoAccess(false):supabase.auth.signOut()}><LogOut size={16}/> Sair</button></div><div className="admin-stats"><div><CalendarDays/><span>Agendamentos hoje<strong>{todayBookings.length}</strong></span></div><div><LayoutDashboard/><span>Receita prevista hoje<strong>{money(todayBookings.reduce((n,b)=>n+b.total,0))}</strong></span></div><div><Scissors/><span>Serviços disponíveis<strong>{studio.services.length}</strong></span></div></div>
-  <nav className="category-tabs">{[['agenda',CalendarDays,'Agenda'],['services',Scissors,'Serviços'],['products',Scissors,'Produtos'],['popup',Megaphone,'Avisos & promoções']].map(([id,Icon,label])=><button className={tab===id?'active':''} key={id} onClick={()=>setTab(id)}><Icon size={16}/>{label}</button>)}</nav>
+  <nav className="category-tabs">{[['agenda',CalendarDays,'Agenda'],['services',Scissors,'Serviços'],['products',Scissors,'Produtos'],['layout',Palette,'Layout'],['popup',Megaphone,'Avisos & promoções']].map(([id,Icon,label])=><button className={tab===id?'active':''} key={id} onClick={()=>setTab(id)}><Icon size={16}/>{label}</button>)}</nav>
   <ShopLink slug={slug} demo={isDemo}/><Link className="text-button" to="/painel">Gerenciar minhas lojas</Link>
+  {tab==='layout'&&<AppearanceEditor key={studio.tenant.id} studio={studio} onSaved={invalidate}/>}
   {tab==='services'&&<div className="admin-service-grid">{studio.services.map(s=><ServiceEditor key={s.id} tenantId={studio.tenant.id} service={s} onSaved={invalidate}/>)}</div>}
   {tab==='products'&&<ProductsEditor tenantId={studio.tenant.id}/>}
   {tab==='popup'&&<PopupEditor tenant={studio.tenant} onSaved={invalidate}/>}

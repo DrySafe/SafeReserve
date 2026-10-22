@@ -1,3 +1,4 @@
+import { validateAppearance } from '../lib/appearance';
 import { supabase, isDemoTenant, configError, unwrap } from './supabase';
 import { demoTenant, demoServices, demoProfessionals } from '../lib/demo';
 import { demoAvailability, compatibleProfessionals } from '../lib/availability';
@@ -85,4 +86,15 @@ export async function loadStudio(slug) {
  const studio=await fetchStudio(slug);
  if(slug!=='demonstracao'){try{localStorage.setItem(key,JSON.stringify({savedAt:Date.now(),studio}));}catch{}}
  return studio;
+}
+
+export async function saveAppearance(tenantId,appearance) {
+ const value=validateAppearance(appearance,{allowData:isDemoTenant(tenantId)});
+ if(isDemoTenant(tenantId)) {
+  try{write('sr:demo:tenant',{...read('sr:demo:tenant',demoTenant),appearance:value});}
+  catch{throw new Error('Não foi possível salvar a demonstração. Use imagens menores ou URLs HTTPS.');}
+  return value;
+ }
+ const result=await unwrap(supabase.from('tenants').update({appearance:value}).eq('id',tenantId).select('appearance').single());
+ return result.appearance;
 }

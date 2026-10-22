@@ -1,33 +1,57 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ArrowUpRight, Check, Clock3, MapPin, Star, ShieldCheck, Sparkles, Heart, LoaderCircle, CalendarDays } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { ArrowRight, ArrowUpRight, Check, Clock3, MapPin, ShieldCheck, Sparkles, Heart, LoaderCircle, CalendarDays, Instagram, MessageCircle } from 'lucide-react';
 import { useTenant } from '../../hooks/useTenant';
 import { useBookingStore } from '../../store/booking';
 import { money } from '../../lib/availability';
+import { normalizeAppearance } from '../../lib/appearance';
 import ServiceList from '../../components/booking/ServiceList';
 import ProSelect from '../../components/booking/ProSelect';
 import TimeSlotPicker from '../../components/booking/TimeSlotPicker';
 import Checkout from '../../components/booking/Checkout';
 import Modal from '../../components/ui/Modal';
+import StorefrontFrame from '../../components/storefront/StorefrontFrame';
+import StorefrontHero from '../../components/storefront/StorefrontHero';
+
 export default function BookingPage() {
-  const { data:studio, error, isPending, slug, demo: isDemo } = useTenant(); const state = useBookingStore();
-  const [checkout,setCheckout] = useState(null);const [popup,setPopup]=useState(false);const [about,setAbout]=useState(false);
+  const {data:studio,error,isPending,slug,demo:isDemo}=useTenant();
+  const state=useBookingStore();
+  const [checkout,setCheckout]=useState(null);const [popup,setPopup]=useState(false);const [about,setAbout]=useState(false);
+  const a=normalizeAppearance(studio?.tenant.appearance,{allowData:isDemo});
   useEffect(()=>state.setTenant(slug),[slug,state.setTenant]);
-  useEffect(()=>{ if(studio?.tenant.popup?.enabled){ const key=`sr:popup:${studio.tenant.id}:${JSON.stringify(studio.tenant.popup)}`; if(!sessionStorage.getItem(key)){setPopup(true);sessionStorage.setItem(key,'1');} } },[studio]);
-  if(isPending) return <div className="page-state"><LoaderCircle className="spin"/><h2>Preparando seu momento…</h2></div>;
-  if(error) return <div className="page-state"><h2>Não conseguimos abrir este espaço.</h2><p>{error.message}</p><div className="landing-actions"><Link className="button secondary" to="/">Ir para o início</Link><Link className="button primary" to="/demonstracao">Ver demonstração</Link></div></div>;
-  const selected = studio.services.filter(s=>state.serviceIds.includes(s.id));const total = selected.reduce((n,s)=>n+s.price,0);const duration=selected.reduce((n,s)=>n+s.duration,0);
+  useEffect(()=>{if(!a.showProfessionals&&state.professionalId)state.setProfessional('');},[a.showProfessionals,state.professionalId,state.setProfessional]);
+  useEffect(()=>{
+    if(studio?.tenant.popup?.enabled){const key=`sr:popup:${studio.tenant.id}:${JSON.stringify(studio.tenant.popup)}`;if(!sessionStorage.getItem(key)){setPopup(true);sessionStorage.setItem(key,'1');}}
+  },[studio]);
+  if(isPending)return <div className="page-state"><LoaderCircle className="spin"/><h2>Preparando seu momento…</h2></div>;
+  if(error)return <div className="page-state"><h2>Não conseguimos abrir este espaço.</h2><p>{error.message}</p><div className="landing-actions"><Link className="button secondary" to="/">Ir para o início</Link><Link className="button primary" to="/demonstracao">Ver demonstração</Link></div></div>;
+  const selected=studio.services.filter(s=>state.serviceIds.includes(s.id));
+  const total=selected.reduce((n,s)=>n+s.price,0);const duration=selected.reduce((n,s)=>n+s.duration,0);
   const canBook=selected.length>0&&state.slot;
-  return <><main className="booking-page">{isDemo&&<div className="demo-store-notice">Você está explorando uma loja de exemplo. <Link to="/cadastro">Criar minha própria loja <ArrowRight size={14}/></Link></div>}<div className="studio-bar"><span className="studio-mark">{studio.tenant.name.charAt(0).toLowerCase()}<span>✳</span></span><div><strong>{studio.tenant.name}</strong><span><MapPin size={12}/> {studio.tenant.address}</span></div><button className="text-button studio-about" onClick={()=>setAbout(true)}>Conheça o espaço <ArrowUpRight size={14}/></button></div>
-    <section className="hero"><div className="hero-content"><motion.div initial={{opacity:0,y:15}} animate={{opacity:1,y:0}}><span className="hero-badge"><span/> SEU BEM-ESTAR TEM HORA MARCADA</span><h1>Um cuidado.<br/>Uma pausa.<br/><em>Um tempo seu.</em></h1><p>{studio.tenant.description}<br/>Agende seu próximo momento em poucos toques.</p><a href="#booking" className="button primary hero-cta">Encontrar meu momento <ArrowRight size={18}/></a><div className="hero-trust"><span className="tiny-avatars">{studio.professionals.slice(0,3).map(pro=><i key={pro.id}>{pro.initials||pro.name.slice(0,2)}</i>)}</span><span><strong>Feito por quem cuida.</strong><small>Profissionais que fazem a diferença.</small></span></div></motion.div></div><div className="hero-art" aria-hidden="true"><div className="art-grain"/><div className="arch arch-back"/><div className="arch arch-mirror"><div className="mirror-shine"/><div className="mirror-line"/></div><div className="art-plinth"/><div className="bottle bottle-one"><div/><span>CUIDADO<br/><small>essencial</small></span></div><div className="bottle bottle-two"><div/><span>UM TEMPO<br/>SEU</span></div><div className="plant"><i/><i/><i/><i/><i/><i/><i/><i/><span/></div><span className="art-word">cuidado.</span><div className="floating-note"><span><Sparkles size={19}/></span><div>Seu próximo ritual<strong>começa aqui.</strong></div><Heart size={18}/></div><div className="art-caption"><span>ESTÉTICA & BEM-ESTAR</span><span>01 — SEU MOMENTO</span></div></div></section>
-    <div className="benefits"><span><Clock3 size={17}/> Agende em poucos toques</span><span><ShieldCheck size={17}/> Sem cadastro obrigatório</span><span><Heart size={17}/> Cuidado do início ao fim</span></div>
-    <div id="booking" className="booking-heading"><div><span className="eyebrow">SIMPLES, DO SEU JEITO</span><h2>Vamos marcar?</h2></div><div className="stepper" aria-label="Etapas do agendamento"><span className="current"><i>{selected.length?<Check size={12}/>:1}</i> Serviços</span><span className={selected.length?'current':''}><i>{state.slot?<Check size={12}/>:2}</i> Dia e horário</span><span><i>3</i> Pronto</span></div></div>
-    <div className="booking-layout"><div className="booking-sections"><ServiceList services={studio.services}/><ProSelect professionals={studio.professionals}/><TimeSlotPicker studio={studio} onWaitlist={()=>setCheckout('waitlist')}/></div>
-      <aside className="summary"><div className="summary-top"><span className="eyebrow">O SEU MOMENTO</span><CalendarDays size={21}/></div><h2>Um encontro<br/>com você.</h2>{selected.length ? <div className="summary-services">{selected.map(s=><div key={s.id}><span>{s.name}<small>{s.duration} min</small></span><strong>{money(s.price)}</strong></div>)}</div> : <p className="summary-empty">Seu cuidado começa com uma escolha.<br/>Selecione seus serviços ao lado.</p>}
-      <div className="summary-details"><span><Clock3 size={16}/>{duration?`${duration} minutos de cuidado`:'No seu tempo'}</span><span><MapPin size={16}/>{studio.tenant.name}</span>{state.slot&&<span><CalendarDays size={16}/>{new Intl.DateTimeFormat('pt-BR',{timeZone:studio.tenant.timezone,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(state.slot.starts_at))}</span>}</div><div className="summary-total"><span>Total estimado</span><strong>{money(total)}</strong></div><small className="pay-note">Pagamento direto no estabelecimento</small><button className="button primary full" disabled={!canBook} onClick={()=>setCheckout('booking')}>Reservar meu momento <ArrowRight size={17}/></button><span className="secure-note"><ShieldCheck size={14}/> Sem pagamento antecipado</span><div className="summary-quote"><span>“</span><p>Cuidar de você também<br/>faz parte dos seus planos.</p><Sparkles size={17}/></div></aside></div>
-    <section className="closing-note"><span>✳</span><h2>Seu tempo é precioso.<br/><em>O seu cuidado também.</em></h2><p>A gente cuida dos detalhes.<br/>Você só precisa chegar.</p></section>
-    <footer className="studio-footer"><span>© {new Date().getFullYear()} {studio.tenant.name}</span><span>Com cuidado, <strong>SafeReserve</strong></span><Link to={`/${slug}/admin`}>Acesso profissional <ArrowUpRight size={12}/></Link></footer>
-  </main>{selected.length>0&&<div className="mobile-booking-bar"><div><small>{selected.length?`${selected.length} serviço${selected.length>1?'s':''} · ${duration} min`:'Seu próximo momento'}</small><strong>{money(total)}</strong></div><button className="button primary" disabled={!canBook} onClick={()=>setCheckout('booking')}>Reservar <ArrowRight size={16}/></button></div>}
-  {checkout&&<Checkout studio={studio} waiting={checkout==='waitlist'} onClose={()=>setCheckout(null)}/>}{popup&&<Modal title={studio.tenant.popup.title} onClose={()=>setPopup(false)}><p className="popup-message">{studio.tenant.popup.message}</p><button className="button primary full" onClick={()=>setPopup(false)}>Vamos lá <ArrowRight size={17}/></button></Modal>}{about&&<Modal title={studio.tenant.name} onClose={()=>setAbout(false)}><p>{studio.tenant.tagline}</p><p className="muted">{studio.tenant.description}</p><p><MapPin size={17}/> {studio.tenant.address}</p><p className="muted">Os horários disponíveis para cada profissional aparecem durante o agendamento.</p>{isDemo&&<p className="demo-inline">Estabelecimento fictício para demonstração do SafeReserve.</p>}</Modal>}</>;
+  return <StorefrontFrame key={studio.tenant.id} tenant={studio.tenant} appearance={a} slug={slug}>
+    <main className="booking-page">
+      {isDemo&&<div className="demo-store-notice">Você está explorando uma loja de exemplo. <Link to="/cadastro">Criar minha própria loja <ArrowRight size={14}/></Link></div>}
+      <div className="store-meta">{a.showAddress&&<span><MapPin size={14}/>{studio.tenant.address}</span>}<button className="text-button" onClick={()=>setAbout(true)}>Conheça o espaço <ArrowUpRight size={14}/></button></div>
+      <StorefrontHero key={a.coverUrl} tenant={studio.tenant} professionals={studio.professionals} appearance={a}/>
+      {a.showBenefits&&<div className="benefits"><span><Clock3 size={17}/>Agende em poucos toques</span><span><ShieldCheck size={17}/>Sem cadastro obrigatório</span><span><Heart size={17}/>Cuidado do início ao fim</span></div>}
+      <div id="booking" className="booking-heading"><div><span className="eyebrow">SIMPLES, DO SEU JEITO</span><h2>Vamos marcar?</h2></div><div className="stepper" aria-label="Etapas do agendamento"><span className="current"><i>{selected.length?<Check size={12}/>:1}</i>Serviços</span><span className={selected.length?'current':''}><i>{state.slot?<Check size={12}/>:2}</i>Dia e horário</span><span><i>3</i>Pronto</span></div></div>
+      <div className="booking-layout"><div className="booking-sections">
+        <ServiceList services={studio.services} appearance={a}/>
+        {a.showProfessionals&&<ProSelect professionals={studio.professionals}/>}
+        <TimeSlotPicker studio={studio} onWaitlist={()=>setCheckout('waitlist')}/>
+      </div><aside className="summary"><div className="summary-top"><span className="eyebrow">O SEU MOMENTO</span><CalendarDays size={21}/></div><h2>Sua próxima<br/>visita.</h2>
+        {selected.length?<div className="summary-services">{selected.map(s=><div key={s.id}><span>{s.name}<small>{s.duration} min</small></span><strong>{money(s.price)}</strong></div>)}</div>:<p className="summary-empty">Selecione seus serviços e encontre o melhor horário para você.</p>}
+        <div className="summary-details"><span><Clock3 size={16}/>{duration?`${duration} minutos`:'No seu tempo'}</span><span><MapPin size={16}/>{studio.tenant.name}</span>{state.slot&&<span><CalendarDays size={16}/>{new Intl.DateTimeFormat('pt-BR',{timeZone:studio.tenant.timezone,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(state.slot.starts_at))}</span>}</div>
+        <div className="summary-total"><span>Total estimado</span><strong>{money(total)}</strong></div><small className="pay-note">Pagamento direto no estabelecimento</small><button className="button primary full" disabled={!canBook} onClick={()=>setCheckout('booking')}>Reservar meu momento <ArrowRight size={17}/></button><span className="secure-note"><ShieldCheck size={14}/>Sem pagamento antecipado</span>
+        {a.showClosing&&<div className="summary-quote"><span>“</span><p>{a.closing}</p><Sparkles size={17}/></div>}
+      </aside></div>
+      {a.showClosing&&<section className="closing-note"><span>✳</span><h2>{a.closing.split('\n').map((line,i)=><span key={i}>{line}<br/></span>)}</h2><p>A gente cuida dos detalhes.<br/>Você só precisa chegar.</p></section>}
+      {(a.instagram||a.whatsapp)&&<nav className="store-social" aria-label="Fale com a loja">{a.instagram&&<a href={a.instagram} target="_blank" rel="noreferrer"><Instagram size={18}/>Nosso Instagram <ArrowUpRight size={14}/></a>}{a.whatsapp&&<a href={`https://wa.me/${a.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noreferrer"><MessageCircle size={18}/>Fale com a loja <ArrowUpRight size={14}/></a>}</nav>}
+      <footer className="studio-footer"><span>© {new Date().getFullYear()} {studio.tenant.name}</span><Link to="/">Agendamentos por <strong>SafeReserve</strong></Link><Link to={`/${slug}/admin`}>Acesso profissional <ArrowUpRight size={12}/></Link></footer>
+    </main>
+    {selected.length>0&&<div className="mobile-booking-bar"><div><small>{selected.length} serviço{selected.length>1?'s':''} · {duration} min</small><strong>{money(total)}</strong></div><button className="button primary" disabled={!canBook} onClick={()=>setCheckout('booking')}>Reservar <ArrowRight size={16}/></button></div>}
+    {checkout&&<Checkout studio={studio} waiting={checkout==='waitlist'} onClose={()=>setCheckout(null)}/>}
+    {popup&&<Modal title={studio.tenant.popup.title} onClose={()=>setPopup(false)}><p className="popup-message">{studio.tenant.popup.message}</p><button className="button primary full" onClick={()=>setPopup(false)}>Vamos lá <ArrowRight size={17}/></button></Modal>}
+    {about&&<Modal title={studio.tenant.name} onClose={()=>setAbout(false)}><p>{studio.tenant.tagline}</p><p className="muted">{a.description||studio.tenant.description}</p><p><MapPin size={17}/>{studio.tenant.address}</p><p className="muted">Os horários disponíveis para cada profissional aparecem durante o agendamento.</p>{isDemo&&<p className="demo-inline">Estabelecimento fictício para demonstração do SafeReserve.</p>}</Modal>}
+  </StorefrontFrame>;
 }

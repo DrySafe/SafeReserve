@@ -31,7 +31,10 @@ async function mockSupabase(page) {
       if (url.searchParams.get('select')==='role') return send(shops.some(s=>`eq.${s.id}`===url.searchParams.get('tenant_id'))?[{role:'admin'}]:[]);
       return send(shops.map(s=>({tenant_id:s.id,role:'admin',tenant:{id:s.id,slug:s.slug,name:s.name,active:true}})));
     }
-    if (url.pathname==='/rest/v1/tenants') return send(shops.filter(s=>`eq.${s.slug}`===url.searchParams.get('slug')));
+    if (url.pathname==='/rest/v1/tenants') {
+      if(request.method()==='PATCH') { const target=shops.find(s=>`eq.${s.id}`===url.searchParams.get('id')); if(!target)return send({message:'Not found'},404);target.appearance=request.postDataJSON().appearance;return send({appearance:target.appearance}); }
+      return send(shops.filter(s=>`eq.${s.slug}`===url.searchParams.get('slug')));
+    }
     const shop=shops.find(s=>`eq.${s.id}`===url.searchParams.get('tenant_id'));
     if (url.pathname==='/rest/v1/services') return send(shop?[shop.service]:[]);
     if (url.pathname==='/rest/v1/professionals') return send(shop?[shop.professional]:[]);
@@ -63,13 +66,13 @@ test('an owner creates two shops with different public links and starter catalog
  await create(page,'Barbearia do João','Corte do João');await expect(page).toHaveURL(/\/barbearia-do-joao\/admin$/);
  await expect(page.getByLabel('Link para seus clientes')).toHaveValue('http://127.0.0.1:4175/barbearia-do-joao');
  await page.getByRole('link',{name:'Gerenciar minhas lojas'}).click();await create(page,'Salão da Júlia','Manicure da Júlia');await expect(page).toHaveURL(/\/salao-da-julia\/admin$/);
- await page.goto('/barbearia-do-joao');await expect(page.locator('.studio-bar strong')).toHaveText('Barbearia do João');await expect(page.getByRole('button',{name:/Corte do João/})).toBeVisible();await expect(page.getByRole('button',{name:/Manicure da Júlia/})).toHaveCount(0);
- await page.goto('/salao-da-julia');await expect(page.locator('.studio-bar strong')).toHaveText('Salão da Júlia');await expect(page.getByRole('button',{name:/Manicure da Júlia/})).toBeVisible();
+ await page.goto('/barbearia-do-joao');await expect(page.locator('.storefront-brand strong')).toHaveText('Barbearia do João');await expect(page.getByRole('button',{name:/Corte do João/})).toBeVisible();await expect(page.getByRole('button',{name:/Manicure da Júlia/})).toHaveCount(0);
+ await page.goto('/salao-da-julia');await expect(page.locator('.storefront-brand strong')).toHaveText('Salão da Júlia');await expect(page.getByRole('button',{name:/Manicure da Júlia/})).toBeVisible();
  await page.goto('/loja-que-nao-existe');await expect(page.getByText('Estabelecimento não encontrado.')).toBeVisible();
  expect(state.shops).toHaveLength(2);expect(state.shops[0].slug).not.toBe(state.shops[1].slug);
 });
 test('the explicit demo stays local even with Supabase configured and a signed-in owner',async({page})=>{
- const state=await mockSupabase(page);await login(page);const before=state.requests.length;
+ const state=await mockSupabase(page);await login(page);await expect(page.getByRole('heading',{name:'Vamos abrir seu espaço?'})).toBeVisible();const before=state.requests.length;
  await page.goto('/demonstracao');await expect(page.getByRole('heading',{name:'Como vamos cuidar de você?'})).toBeVisible();
  await page.getByRole('button',{name:/Corte & finalização/}).click();await page.getByRole('link',{name:'Acesso profissional'}).click();await page.getByRole('button',{name:/Explorar painel/}).click();await expect(page.getByLabel('Link para seus clientes')).toHaveValue('http://127.0.0.1:4175/demonstracao');
  expect(state.requests.slice(before).filter(r=>r.path.startsWith('/rest/'))).toEqual([]);
@@ -77,4 +80,15 @@ test('the explicit demo stays local even with Supabase configured and a signed-i
 test('creating a shop requires a login and root never opens an arbitrary shop',async({page})=>{
  const state=await mockSupabase(page);await page.goto('/criar-loja');await expect(page).toHaveURL(/\/entrar$/);
  await page.goto('/');await expect(page.getByRole('heading',{name:'Seu negócio. Sua agenda. Um link só seu.'})).toBeVisible();expect(state.requests.filter(r=>r.path.includes('tenants')||r.path.includes('create_tenant'))).toEqual([]);
+});
+
+test('publishing a store layout persists through the API and leaves another store unchanged',async({page})=>{
+ const {shops}=await mockSupabase(page);await login(page);await create(page,'Identidade Um','Corte');
+ await page.getByRole('link',{name:'Gerenciar minhas lojas'}).click();await create(page,'Identidade Dois','Manicure');
+ await page.goto('/identidade-um/admin');await page.getByRole('button',{name:'Layout',exact:true}).click();
+ await page.getByRole('button',{name:/Pop Studio/}).click();await page.getByRole('button',{name:'Textos',exact:true}).click();await page.getByLabel('Título principal').fill('Criatividade em cada detalhe');
+ expect(shops[0].appearance).toBeUndefined();await page.getByRole('button',{name:'Salvar layout'}).click();await expect(page.getByRole('status')).toContainText('Layout publicado');
+ expect(shops[0].appearance.template).toBe('pop');expect(shops[1].appearance).toBeUndefined();
+ await page.getByRole('link',{name:'Ver página de agendamento'}).click();await expect(page.getByRole('heading',{name:'Criatividade em cada detalhe'})).toBeVisible();
+ await page.goto('/identidade-dois');await expect(page.locator('.storefront')).toHaveAttribute('data-template','essencia');await expect(page.getByRole('heading',{name:'Um cuidado. Uma pausa. Um tempo seu.'})).toBeVisible();
 });
