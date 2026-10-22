@@ -11,7 +11,9 @@
     "test:e2e": "playwright test",
     "test:sql": "bash tests/sql/run.sh",
     "build:demo": "vite build --mode test-demo --outDir dist-demo",
-    "preview:demo": "vite preview --host 127.0.0.1 --outDir dist-demo"
+    "preview:demo": "vite preview --host 127.0.0.1 --outDir dist-demo",
+    "build:merchant-test": "vite build --mode test-merchant --outDir dist-merchant-test",
+    "test:merchant": "playwright test --config playwright.merchant.config.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.0",

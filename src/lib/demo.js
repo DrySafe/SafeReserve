@@ -1,5 +1,5 @@
 export const demoTenant = {
-  id: 'demo', slug: 'studio-aurora', name: 'Studio Aurora', tagline: 'Beleza que respeita o seu tempo.',
+  id: 'demo', slug: 'demonstracao', name: 'Studio Aurora', tagline: 'Beleza que respeita o seu tempo.',
   description: 'Um respiro na rotina. Um cuidado só seu.', address: 'Rua dos Pinheiros, 870 · São Paulo',
   timezone: 'America/Sao_Paulo', popup: { enabled: false, title: 'Seu momento de cuidado', message: 'Conheça nossos rituais e encontre um tempo para você.' },
 };

@@ -12,25 +12,25 @@ npm ci
 npm run dev
 ```
 
-Sem configuração Supabase, o app abre uma **demonstração explícita** do fictício Studio Aurora. Reservas, lista de espera e alterações administrativas ficam em `sessionStorage`, isoladas por sessão/aba. Nenhuma mensagem é enviada. Fechar a sessão pode apagar os dados. Em modo real, falhas Supabase não são substituídas por dados fictícios.
+A raiz `/` é a página da plataforma, com cadastro, login e acesso à demonstração. `/demonstracao` funciona com ou sem Supabase e usa apenas dados fictícios do Studio Aurora; reservas, lista de espera e alterações administrativas ficam em `sessionStorage`. Nenhuma mensagem é enviada nesse modo. Sem configuração Supabase, o cadastro real fica indisponível, mas a página inicial e a demonstração continuam funcionando. Falhas em lojas reais nunca abrem outra loja nem usam dados demonstrativos.
 
-Rotas: `/` ou `/studio-aurora` para clientes; `/admin` ou `/:tenant/admin` para profissionais. Em domínio próprio `slug.seudominio.com`, o subdomínio identifica o tenant; o slug da URL tem prioridade. Configure DNS wildcard e o host estático para devolver `index.html` nas rotas SPA. O slug `studio-aurora` é o padrão da raiz; outros estabelecimentos devem usar seus próprios slugs.
+Rotas: `/` (plataforma), `/cadastro`, `/entrar`, `/painel` (minhas lojas), `/criar-loja`, `/demonstracao` e `/demonstracao/admin`. Cada loja real usa exclusivamente `/:tenant` para clientes e `/:tenant/admin` para gestão; `/admin` redireciona para o painel de lojas. Exemplo: `/barbearia-do-joao`. O hostname nunca é interpretado como loja, inclusive em previews da Vercel. Não existe loja padrão na raiz. `vercel.json` configura o fallback SPA para permitir abrir e recarregar esses links diretamente.
 
 ## Conectar ao Supabase
 
 As opções `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` foram adicionadas ao rascunho do ambiente. A URL informada é `https://cgmylsxrjzovgwyrncyv.supabase.co`.
 
-1. **Este projeto já foi configurado:** a migration `202610220001_initial.sql` e o catálogo inicial foram aplicados. Veja `docs/SUPABASE_SETUP.md`; não reaplique a migration. Somente para um projeto novo, aplique a migration pelo SQL Editor ou CLI e, opcionalmente, `supabase/seed.sql`.
+1. **Este projeto já foi configurado:** as migrations `202610220001_initial.sql` e `202610220002_owner_onboarding.sql` foram aplicadas. Veja `docs/SUPABASE_SETUP.md`; não reaplique a migration. Somente para um projeto novo, aplique a migration pelo SQL Editor ou CLI e, opcionalmente, `supabase/seed.sql`.
 2. Nas configurações do ambiente, preencha `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` com a **publishable key** (`sb_publishable_…`) ou a chave pública legada `anon` do projeto. Localmente, copie `.env.example` para `.env.local` e preencha as duas variáveis. Não coloque valores em commits ou no chat.
 3. Reinicie o Vite após preencher as variáveis. Para produção, execute um novo `npm run build`: Vite incorpora variáveis públicas no build. Essas duas opções são públicas por definição; a proteção é feita por RLS. **Nunca use `service_role` ou `sb_secret_…` no front-end.**
-4. Crie o usuário administrador no Supabase Auth e conceda a função pelo SQL Editor, como proprietário do banco:
+4. Para criar sua própria loja, abra `/cadastro`, confirme o e-mail, entre e escolha **Criar uma loja**. O banco cria atomicamente a loja, a membership admin do usuário autenticado, o primeiro serviço e o profissional. O link exclusivo aparece no painel para copiar. Não há escolha de `user_id` ou de papéis no navegador. Para adicionar um administrador a uma loja já existente, o proprietário do banco pode usar:
 
 ```sql
 insert into public.memberships (tenant_id, user_id, role)
 values ('UUID-DO-TENANT', 'UUID-DO-USUARIO-AUTH', 'admin');
 ```
 
-O cadastro público nunca atribui papel admin. Configure Site URL, URLs de redirecionamento, confirmação de e-mail e SMTP do Supabase Auth. O upsell pós-reserva usa e-mail e senha (mínimo 8 caracteres); não exige cadastro para reservar. Vinculação automática de uma reserva guest a uma conta posterior exige prova de titularidade e não é feita usando só o telefone.
+O cadastro de conta sozinho nunca atribui papel admin. A função autenticada `create_tenant` atribui admin somente ao criador, exclusivamente na loja que está criando; não concede acesso a outros estabelecimentos. Links são únicos, rotas como `admin` e `demonstracao` são reservadas e a criação suporta repetição sem duplicar a loja. Há um limite de 10 lojas administradas por conta. Configure Site URL, URLs de redirecionamento, confirmação de e-mail e SMTP do Supabase Auth. O upsell pós-reserva usa e-mail e senha (mínimo 8 caracteres); não exige cadastro para reservar. Vinculação automática de uma reserva guest a uma conta posterior exige prova de titularidade e não é feita usando só o telefone.
 
 ## Permissão para criar o banco pelo ambiente cloud
 
@@ -64,7 +64,8 @@ Antes de abrir o endpoint guest para tráfego público, coloque proteção antia
 ```bash
 npm test                   # regras de agenda e adapter Google com HTTP simulado
 npm run build              # bundle e Service Worker de produção
-npm run test:e2e           # Chromium: mobile, desktop, guest/admin, popup, fila e offline
+npm run test:e2e           # Chromium: plataforma, demo, guest/admin, popup, fila e offline
+npm run test:merchant      # API fictícia isolada: cadastro/login e criação de duas lojas
 npm run test:sql           # PostgreSQL 17 isolado: migration, RPCs, RLS e outbox
 ```
 
@@ -80,6 +81,7 @@ src/components/booking/  serviços, profissionais, horários e checkout
 src/components/admin/    serviços, produtos, popup e reagendamento
 src/hooks/               useTenant, useBooking, useTheme
 src/services/            Supabase, API, eventos n8n e link Google
+src/pages/business/      plataforma, cadastro/login, minhas lojas e criação
 src/pages/tenant/        página pública por tenant
 src/pages/admin/         painel protegido
 src/store/               estado temporário Zustand
@@ -89,3 +91,13 @@ supabase/functions/      worker n8n e adapter Google servidor
 ```
 
 Cada tarefa cloud já é isolada. Use este checkout; não crie um Git worktree para iniciar o projeto. Consulte o status do Git antes de trabalhar. Nenhum commit ou push é feito automaticamente pelo setup.
+
+## Implantação na Vercel
+
+As variáveis deste ambiente cloud não são copiadas automaticamente para a Vercel. Em **Vercel → Project → Settings → Environment Variables**, configure `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (chave pública publishable/anon), tanto em Production quanto em Preview quando usados. Depois faça **Redeploy**, pois o Vite incorpora esses valores no build. Sem elas, a página inicial informa a indisponibilidade de cadastro e a demonstração continua acessível. Nunca coloque `SUPABASE_ACCESS_TOKEN` ou service role no front-end ou nas variáveis `VITE_*`.
+
+A build de produção é `npm run build` e o diretório publicado é `dist/`; não publique `dist-demo` ou `dist-merchant-test`. O arquivo `vercel.json` inclui o fallback SPA necessário para links de lojas, cadastro, login e redefinição de senha.
+
+No Supabase Auth, autorize as URLs de retorno do seu domínio HTTPS, incluindo `/criar-loja` e `/redefinir-senha`. Já foram adicionados os retornos dos deployments `https://safereserve-*-danielrgis-projects.vercel.app` da conta mostrada no print. Para um domínio próprio ou outra conta Vercel, adicione o domínio correspondente sem autorizar todos os projetos `*.vercel.app`. Ajuste Site URL para o domínio definitivo quando definido e configure SMTP para e-mails de produção. Ao atualizar uma instalação PWA existente, aceite o aviso **Atualizar** para carregar a nova versão.
+
+`npm run test:merchant` usa um build com URL e chave fictícias, intercepta todas as chamadas e nunca cria contas ou envia e-mails no projeto real. Testes SQL também validam provisionamento, idempotência, link reservado, vínculo de proprietário e isolamento entre lojas. O fluxo de criação foi exercitado no banco real em uma transação revertida.

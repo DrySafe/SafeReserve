@@ -6,7 +6,7 @@ Projeto: `cgmylsxrjzovgwyrncyv`. Configuração aplicada em 22/10/2026 pela API 
 
 A migration `202610220001_initial.sql` foi aplicada em uma transação, juntamente com o seed do catálogo inicial. O histórico foi registrado em `supabase_migrations.schema_migrations`, versão `202610220001`, nome `initial`.
 
-Foram confirmadas 11 tabelas com Row Level Security habilitado: `tenants`, `memberships`, `services`, `professionals`, `professional_services`, `customers`, `bookings`, `time_blocks`, `waitlist`, `products` e `integration_outbox`. Há 15 políticas e 11 funções públicas da aplicação. A extensão `btree_gist` suporta a constraint que impede sobreposição de horários.
+Foram confirmadas 11 tabelas com Row Level Security habilitado: `tenants`, `memberships`, `services`, `professionals`, `professional_services`, `customers`, `bookings`, `time_blocks`, `waitlist`, `products` e `integration_outbox`. Há 15 políticas e 12 funções públicas da aplicação, incluindo o provisionamento autenticado de novas lojas. A extensão `btree_gist` suporta a constraint que impede sobreposição de horários.
 
 O catálogo contém um estabelecimento inicial fictício (Studio Aurora), seis serviços e três profissionais. Ele é um ponto de partida, não representa dados reais de uma empresa. Personalize-o antes de divulgar o link. Nenhum cliente ou agendamento de teste foi persistido.
 
@@ -29,3 +29,12 @@ SMTP personalizado e provider Google ainda não estão configurados. Envio de e-
 ## Integrações
 
 As tabelas e funções de fila, lembretes e outbox estão presentes. Mensageria automática ainda exige n8n/Chatwoot, templates WhatsApp e execução do worker por cron; sincronização Google exige OAuth. Essas integrações externas não foram ativadas por esta configuração do banco. Consulte `INTEGRATIONS.md`.
+
+
+## Cadastro de lojas e links exclusivos
+
+A migration `202610220002_owner_onboarding.sql` foi aplicada e registrada. A função `create_tenant` pode ser chamada apenas por usuários autenticados, valida os campos e o link, cria o catálogo inicial e atribui a membership admin exclusivamente ao chamador. A criação foi validada no PostgreSQL real com rollback; nenhuma loja de teste permaneceu no projeto.
+
+A página inicial agora é da plataforma. `/cadastro` e `/entrar` permitem acessar `/painel` e `/criar-loja`. Cada loja criada tem um endereço `/<slug>` independente do hostname, e o painel permite copiá-lo. `/demonstracao` é local e reservado; nunca aponta para uma loja real.
+
+Os retornos Auth para `https://safereserve-*-danielrgis-projects.vercel.app` e subrotas foram adicionados preservando os anteriores e a confirmação de e-mail. O deploy Vercel precisa receber separadamente as variáveis públicas Supabase; as variáveis da máquina cloud não são transmitidas ao host. As credenciais externas n8n/WhatsApp/Google e SMTP continuam sendo configurações independentes.

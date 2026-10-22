@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 test('mobile guest booking, admin cancellation and popup configuration',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.goto('/');await expect(page.getByRole('heading',{name:'Um cuidado. Uma pausa. Um tempo seu.'})).toBeVisible();
+ await page.goto('/demonstracao');await expect(page.getByRole('heading',{name:'Um cuidado. Uma pausa. Um tempo seu.'})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.getByRole('button',{name:'Ativar tema claro'}).click();await expect(page.locator('html')).toHaveAttribute('data-theme','light');
  await page.getByRole('button',{name:/Corte & finalização/}).click();
@@ -22,14 +22,27 @@ test('mobile guest booking, admin cancellation and popup configuration',async({p
  expect(errors).toEqual([]);
 });
 test('desktop layout, tenant rejection and waitlist flow',async({page})=>{
- await page.setViewportSize({width:1440,height:1000});await page.goto('/');await expect(page.locator('.summary')).toBeVisible();
+ await page.setViewportSize({width:1440,height:1000});await page.goto('/demonstracao');await expect(page.locator('.summary')).toBeVisible();
  await page.screenshot({path:'/tmp/safereserve-desktop.png',fullPage:true});
  await page.getByRole('button',{name:/Manicure essencial/}).click();await page.getByRole('button',{name:'Entrar na lista de espera',exact:true}).click();await page.getByLabel('Como você se chama?').fill('Cliente Fila');await page.getByLabel('Seu WhatsApp').fill('11988888888');await page.getByLabel(/Aceito receber/).check();await page.getByRole('dialog').getByRole('button',{name:'Entrar na lista de espera',exact:true}).click();await expect(page.getByRole('heading',{name:'Você está na lista!'})).toBeVisible();
- await page.getByRole('button',{name:'Voltar para o início'}).click();await page.goto('/outro-salao');await expect(page.getByText('Estabelecimento não encontrado.')).toBeVisible();
+ await page.getByRole('button',{name:'Voltar para o início'}).click();await page.goto('/outro-salao');await expect(page.getByRole('heading',{name:'Não conseguimos abrir este espaço.'})).toBeVisible();
 });
 test('installed shell loads offline and never confirms offline bookings',async({page,context})=>{
- await page.goto('/');await page.evaluate(async()=>{await navigator.serviceWorker.ready;});await page.reload();
+ await page.goto('/demonstracao');await page.evaluate(async()=>{await navigator.serviceWorker.ready;});await page.reload();
  await page.getByRole('button',{name:/Corte & finalização/}).click();const days=page.locator('.day');for(let i=1;i<7;i++){await days.nth(i).click();await expect(page.locator('.slots')).toHaveAttribute('aria-busy','false');if(await page.locator('.time-slot').count())break;}
  await page.locator('.time-slot').first().click();await page.locator('.mobile-booking-bar').getByRole('button',{name:'Reservar',exact:true}).click();await page.getByLabel('Como você se chama?').fill('Offline Teste');await page.getByLabel('Seu WhatsApp').fill('11999999999');await page.getByLabel(/Aceito receber/).check();
  await context.setOffline(true);await page.getByRole('button',{name:'Confirmar meu agendamento'}).click();await expect(page.getByText('Você está offline. Reconecte para confirmar um horário atualizado.')).toBeVisible();await page.getByRole('button',{name:'Fechar',exact:true}).click();await page.reload();await expect(page.getByRole('heading',{name:'Um cuidado. Uma pausa. Um tempo seu.'})).toBeVisible();await expect(page.locator('.offline-banner')).toBeVisible();await context.setOffline(false);
+});
+
+test('the platform root offers signup, login and a working explicit demo',async({page})=>{
+ await page.goto('/');
+ await expect(page.getByRole('heading',{name:'Seu negócio. Sua agenda. Um link só seu.'})).toBeVisible();
+ await expect(page.getByRole('link',{name:'Criar minha loja',exact:true})).toHaveAttribute('href','/cadastro');
+ await page.getByRole('link',{name:'Já tenho conta'}).click();
+ await expect(page.getByRole('heading',{name:'Bom ter você de volta.'})).toBeVisible();
+ await page.goto('/');await page.getByRole('link',{name:'Experimentar a demonstração'}).click();
+ await expect(page).toHaveURL(/\/demonstracao$/);
+ await expect(page.getByRole('heading',{name:'Como vamos cuidar de você?'})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.goto('/demonstracao/');await expect(page.getByRole('heading',{name:'Como vamos cuidar de você?'})).toBeVisible();
 });

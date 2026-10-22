@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, LogOut, CalendarDays, Scissors, Megaphone, LayoutDashboard } from 'lucide-react';
-import { supabase, isDemo, unwrap } from '../../services/supabase';
+import { supabase, unwrap } from '../../services/supabase';
 import { adminBookings, updateBooking } from '../../services/api';
 import { money, dateKey } from '../../lib/availability';
 import { useTenant } from '../../hooks/useTenant';
@@ -10,8 +10,9 @@ import ServiceEditor from '../../components/admin/ServiceEditor';
 import PopupEditor from '../../components/admin/PopupEditor';
 import ProductsEditor from '../../components/admin/ProductsEditor';
 import RescheduleModal from '../../components/admin/RescheduleModal';
+import ShopLink from '../../components/admin/ShopLink';
 export default function AdminPage() {
-  const { data:studio, slug, error, isPending }=useTenant();const [session,setSession]=useState(null);const [authReady,setAuthReady]=useState(isDemo);const [demoAccess,setDemoAccess]=useState(false);
+  const { data:studio, slug, error, isPending, demo: isDemo }=useTenant();const [session,setSession]=useState(null);const [authReady,setAuthReady]=useState(isDemo||!supabase);const [demoAccess,setDemoAccess]=useState(false);
   const [rescheduling,setRescheduling]=useState(null);
   const [email,setEmail]=useState('');const [password,setPassword]=useState('');const [message,setMessage]=useState('');const [busy,setBusy]=useState(false);const [tab,setTab]=useState('agenda');const query=useQueryClient();
   useEffect(()=>{if(!supabase)return;supabase.auth.getSession().then(({data,error})=>{setSession(data.session);if(error)setMessage(error.message);setAuthReady(true);});const {data}=supabase.auth.onAuthStateChange((_event,s)=>{setSession(s);setAuthReady(true);});return()=>data.subscription.unsubscribe();},[]);
@@ -26,6 +27,7 @@ export default function AdminPage() {
   const all=bookings.data||[]; const today=dateKey(new Date(),studio.tenant.timezone);const todayBookings=all.filter(b=>dateKey(new Date(b.starts_at),studio.tenant.timezone)===today&&b.status==='confirmed');
   return <main className="admin-page"><Link className="text-button" to={`/${slug}`}><ArrowLeft size={16}/> Ver página de agendamento</Link><div className="admin-heading"><div><span className="eyebrow">ESPAÇO PROFISSIONAL {isDemo?'· DEMONSTRAÇÃO':''}</span><h1>{studio.tenant.name}</h1><p className="muted">Os detalhes do seu negócio, em um só lugar.</p></div><button className="button secondary" onClick={()=>isDemo?setDemoAccess(false):supabase.auth.signOut()}><LogOut size={16}/> Sair</button></div><div className="admin-stats"><div><CalendarDays/><span>Agendamentos hoje<strong>{todayBookings.length}</strong></span></div><div><LayoutDashboard/><span>Receita prevista hoje<strong>{money(todayBookings.reduce((n,b)=>n+b.total,0))}</strong></span></div><div><Scissors/><span>Serviços disponíveis<strong>{studio.services.length}</strong></span></div></div>
   <nav className="category-tabs">{[['agenda',CalendarDays,'Agenda'],['services',Scissors,'Serviços'],['products',Scissors,'Produtos'],['popup',Megaphone,'Avisos & promoções']].map(([id,Icon,label])=><button className={tab===id?'active':''} key={id} onClick={()=>setTab(id)}><Icon size={16}/>{label}</button>)}</nav>
+  <ShopLink slug={slug} demo={isDemo}/><Link className="text-button" to="/painel">Gerenciar minhas lojas</Link>
   {tab==='services'&&<div className="admin-service-grid">{studio.services.map(s=><ServiceEditor key={s.id} tenantId={studio.tenant.id} service={s} onSaved={invalidate}/>)}</div>}
   {tab==='products'&&<ProductsEditor tenantId={studio.tenant.id}/>}
   {tab==='popup'&&<PopupEditor tenant={studio.tenant} onSaved={invalidate}/>}

@@ -5,9 +5,10 @@ import Modal from '../ui/Modal';
 import { money, normalizePhone } from '../../lib/availability';
 import { createBooking, joinWaitlist } from '../../services/api';
 import { googleCalendarLink } from '../../services/gcal';
-import { isDemo, supabase, unwrap } from '../../services/supabase';
+import { isDemoTenant, supabase, unwrap } from '../../services/supabase';
 import { useBookingStore } from '../../store/booking';
 export default function Checkout({ studio, waiting = false, onClose }) {
+  const isDemo = isDemoTenant(studio.tenant.id);
   const state = useBookingStore(); const selected = studio.services.filter(s=>state.serviceIds.includes(s.id));
   const [name,setName] = useState(''); const [phone,setPhone] = useState(''); const [consent,setConsent] = useState(false);
   const [busy,setBusy] = useState(false); const [error,setError] = useState(''); const [result,setResult] = useState(null);

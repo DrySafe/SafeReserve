@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Modal from '../ui/Modal';
 import { getRescheduleAvailability, rescheduleBooking } from '../../services/api';
-import { supabase, isDemo, unwrap } from '../../services/supabase';
 import { dateKey, uniqueSlots } from '../../lib/availability';
 export default function RescheduleModal({studio,booking,onClose}) {
  const [date,setDate]=useState(dateKey(new Date(booking.starts_at),studio.tenant.timezone));const [professional,setProfessional]=useState(booking.professional_id);const [slot,setSlot]=useState(null);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const client=useQueryClient();
