@@ -10,7 +10,7 @@ for attempt in {1..30}; do
  if docker_local exec "$container_name" pg_isready -h 127.0.0.1 -U postgres >/dev/null; then break; fi
  sleep 1
 done
-for sql in tests/sql/bootstrap.sql supabase/migrations/*.sql supabase/seed.sql tests/sql/security.sql tests/sql/onboarding.sql tests/sql/appearance.sql; do
+for sql in tests/sql/bootstrap.sql supabase/migrations/*.sql supabase/seed.sql tests/sql/security.sql tests/sql/onboarding.sql tests/sql/appearance.sql tests/sql/management.sql; do
  docker_local exec -i "$container_name" psql -h 127.0.0.1 -q -U postgres -v ON_ERROR_STOP=1 < "$sql"
 done
 

@@ -1,7 +1,7 @@
 import { validateAppearance } from '../lib/appearance';
 import { supabase, isDemoTenant, configError, unwrap } from './supabase';
 import { demoTenant, demoServices, demoProfessionals } from '../lib/demo';
-import { demoAvailability, compatibleProfessionals } from '../lib/availability';
+import { demoAvailability, compatibleProfessionals, dateKey } from '../lib/availability';
 const read = (key, fallback) => { try { return JSON.parse(sessionStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
 const write = (key, data) => sessionStorage.setItem(key, JSON.stringify(data));
 const demoBookings = () => read('sr:demo:bookings', []);
@@ -97,4 +97,22 @@ export async function saveAppearance(tenantId,appearance) {
  }
  const result=await unwrap(supabase.from('tenants').update({appearance:value}).eq('id',tenantId).select('appearance').single());
  return result.appearance;
+}
+
+export async function managementBookings(tenant,filters) {
+ const {from,until,search='',professional='',status='',offset=0}=filters;
+ if(!from||!until||until<from||(new Date(until)-new Date(from))/86400000>365)throw new Error('Escolha um período válido de até 366 dias.');
+ if(isDemoTenant(tenant.id)){
+  const rows=demoBookings().filter(b=>{const day=dateKey(new Date(b.starts_at),tenant.timezone);return day>=from&&day<=until&&(!professional||b.professional_id===professional)&&(!status||b.status===status)&&(!search||b.name.toLowerCase().includes(search.toLowerCase())||/^[+\d()\s-]+$/.test(search)&&search.replace(/\D/g,'')&&b.phone.includes(search.replace(/\D/g,'')));}).sort((a,b)=>a.starts_at.localeCompare(b.starts_at)||a.id.localeCompare(b.id));
+  return {rows:rows.slice(offset,offset+50),total:rows.length,confirmed:rows.filter(b=>b.status==='confirmed').length,cancelled:rows.filter(b=>b.status==='cancelled').length,revenue:rows.filter(b=>b.status==='confirmed').reduce((sum,b)=>sum+b.total,0)};
+ }
+ return unwrap(supabase.rpc('management_bookings',{p_tenant:tenant.id,p_from:from,p_until:until,p_search:search,p_professional:professional||null,p_status:status,p_offset:offset}));
+}
+export async function updateBookingContact(tenantId,bookingId,name,phone) {
+ if(isDemoTenant(tenantId)){write('sr:demo:bookings',demoBookings().map(b=>b.id===bookingId?{...b,name:name.trim(),phone}:b));return;}
+ await unwrap(supabase.rpc('update_booking_contact',{p_tenant:tenantId,p_booking:bookingId,p_name:name.trim(),p_phone:phone}));
+}
+export async function managementTeam(tenantId) {
+ if(isDemoTenant(tenantId))return demoProfessionals;
+ return unwrap(supabase.from('professionals').select('id,name,active').eq('tenant_id',tenantId).order('name'));
 }

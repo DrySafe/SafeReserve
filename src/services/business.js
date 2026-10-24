@@ -8,8 +8,8 @@ export async function ownerShops(userId) {
   requireConnection();
   const memberships = await unwrap(supabase.from('memberships')
     .select('tenant_id,role,tenant:tenants(id,name,slug,active)')
-    .eq('user_id', userId).eq('role', 'admin'));
-  return memberships.map(m => m.tenant).filter(Boolean);
+    .eq('user_id', userId).in('role', ['admin','receptionist']));
+  return memberships.filter(m=>m.tenant).map(m=>({...m.tenant,role:m.role}));
 }
 
 export async function createShop(values) {

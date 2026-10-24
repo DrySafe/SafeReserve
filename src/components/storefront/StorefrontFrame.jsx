@@ -1,3 +1,4 @@
+import { useStoreApp } from '../../hooks/useStoreApp';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
@@ -10,6 +11,7 @@ export function BrandImage({url,name}) {
   return url&&!failed?<img src={url} alt="" onError={()=>setFailed(true)}/>:<span>{name.slice(0,2).toUpperCase()}</span>;
 }
 export default function StorefrontFrame({tenant,appearance,slug,preview=false,children}) {
+  useStoreApp(tenant,false,preview);
   const {mode,toggle}=useShopTheme(tenant.id,appearance.mode,preview?(appearance.mode==='system'?'dark':appearance.mode):undefined);
   return <div className="storefront" data-storefront="" data-mode={mode} data-template={appearance.template} data-shape={appearance.shape} data-density={appearance.density} data-font={appearance.font} data-category-colors={appearance.colorfulServices} style={appearanceVariables(appearance,mode)}>
     <header className="storefront-header"><div className="storefront-header-inner">

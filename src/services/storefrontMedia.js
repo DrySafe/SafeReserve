@@ -18,3 +18,27 @@ export async function uploadStorefrontImage(tenantId,file) {
   return supabase.storage.from('storefront-media').getPublicUrl(path).data.publicUrl;
  }finally{bitmap.close();}
 }
+
+export async function uploadAppIcon(tenantId,file) {
+ if(!allowed.includes(file.type)||file.size>5*1024*1024)throw new Error('Escolha uma imagem JPG, PNG ou WebP de até 5 MB.');
+ const bitmap=await createImageBitmap(file).catch(()=>{throw new Error('Não conseguimos abrir essa imagem.');});
+ try {
+  const images={};const batch=crypto.randomUUID();
+  for(const size of [192,512]){
+   const canvas=document.createElement('canvas');canvas.width=canvas.height=size;
+   const context=canvas.getContext('2d');if(!context)throw new Error('Não foi possível preparar o ícone.');
+   // Contain the whole brand mark inside a square; never crop the logo.
+   context.fillStyle='#ffffff';context.fillRect(0,0,size,size);
+   const scale=size*.84/Math.max(bitmap.width,bitmap.height);const w=bitmap.width*scale,h=bitmap.height*scale;
+   context.drawImage(bitmap,(size-w)/2,(size-h)/2,w,h);
+   const key=size===512?'faviconUrl':'icon192Url';
+   if(isDemoTenant(tenantId)){images[key]=canvas.toDataURL('image/png');continue;}
+   const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw new Error('Não foi possível preparar o ícone.');
+   const path=`${tenantId}/${batch}-${size}.png`;
+   const {error}=await supabase.storage.from('storefront-media').upload(path,blob,{contentType:'image/png',upsert:false});
+   if(error)throw new Error('Não foi possível enviar o ícone. Tente novamente.');
+   images[key]=supabase.storage.from('storefront-media').getPublicUrl(path).data.publicUrl;
+  }
+  return images;
+ }finally{bitmap.close();}
+}

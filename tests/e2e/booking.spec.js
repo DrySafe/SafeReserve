@@ -41,7 +41,7 @@ test('the platform root offers signup, login and a working explicit demo',async(
  await page.getByRole('link',{name:'Já tenho conta'}).click();
  await expect(page.getByRole('heading',{name:'Bom ter você de volta.'})).toBeVisible();
  await page.goto('/');await page.getByRole('link',{name:'Experimentar a demonstração'}).click();
- await expect(page).toHaveURL(/\/demonstracao$/);
+ await expect(page).toHaveURL(/\/demonstracao\/?$/);
  await expect(page.getByRole('heading',{name:'Como vamos cuidar de você?'})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.goto('/demonstracao/');await expect(page.getByRole('heading',{name:'Como vamos cuidar de você?'})).toBeVisible();

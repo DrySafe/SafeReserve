@@ -24,5 +24,5 @@ export function shopLink(slug, origin = window.location.origin) {
 
 export function isDemoPath(pathname) {
   const path = pathname.replace(/\/+$/, '');
-  return path === '/demonstracao' || path === '/demonstracao/admin';
+  return path === '/demonstracao' || path === '/demonstracao/admin' || path === '/demonstracao/gestao';
 }

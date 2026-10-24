@@ -17,7 +17,7 @@ export const templates = [
 ];
 export const defaultAppearance = {
   version:1, template:'essencia', ...templates[0].defaults,
-  description:'', logoUrl:'', coverUrl:'', coverPosition:'center',
+  description:'', logoUrl:'', faviconUrl:'', icon192Url:'', coverUrl:'', coverPosition:'center',
   showAddress:true, showBenefits:true, showProfessionals:true, showClosing:true,
   showDescriptions:true, colorfulServices:false,
   closing:'Seu tempo é precioso.\nO seu cuidado também.', instagram:'', whatsapp:'',
@@ -46,6 +46,7 @@ export function normalizeAppearance(input={}, {allowData=false}={}) {
   for (const key of ['primary','secondary']) if (isHex(raw[key])) result[key]=raw[key].toLowerCase();
   for (const [key,limit] of Object.entries(textLimits)) if (typeof raw[key]==='string') result[key]=raw[key].slice(0,limit);
   for (const key of ['showAddress','showBenefits','showProfessionals','showClosing','showDescriptions','colorfulServices']) if (typeof raw[key]==='boolean')result[key]=raw[key];
+  result.faviconUrl=safeImageUrl(raw.faviconUrl,allowData);result.icon192Url=safeImageUrl(raw.icon192Url,allowData);
   result.logoUrl=safeImageUrl(raw.logoUrl,allowData);result.coverUrl=safeImageUrl(raw.coverUrl,allowData);
   result.instagram=safeInstagram(raw.instagram);
   if (result.whatsapp && !/^[+\d()\s-]{10,24}$/.test(result.whatsapp))result.whatsapp='';
@@ -60,7 +61,7 @@ export function applyTemplate(current,id) {
 }
 export function validateAppearance(value,{allowData=false}={}) {
   if(!isHex(value.primary)||!isHex(value.secondary))throw new Error('Use cores no formato #123ABC.');
-  for(const key of ['logoUrl','coverUrl'])if(value[key]&&!safeImageUrl(value[key],allowData))throw new Error('Use uma imagem enviada ou uma URL HTTPS válida.');
+  for(const key of ['logoUrl','coverUrl','faviconUrl','icon192Url'])if(value[key]&&!safeImageUrl(value[key],allowData))throw new Error('Use uma imagem enviada ou uma URL HTTPS válida.');
   if(value.media==='photo'&&!value.coverUrl)throw new Error('Envie uma capa ou escolha uma ilustração.');
   if(value.instagram&&!safeInstagram(value.instagram))throw new Error('Informe um link HTTPS do Instagram.');
   if(value.whatsapp&&!/^[+\d()\s-]{10,24}$/.test(value.whatsapp))throw new Error('Informe o WhatsApp da loja com DDD e código do país.');

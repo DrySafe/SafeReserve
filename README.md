@@ -14,13 +14,13 @@ npm run dev
 
 A raiz `/` é a página da plataforma, com cadastro, login e acesso à demonstração. `/demonstracao` funciona com ou sem Supabase e usa apenas dados fictícios do Studio Aurora; reservas, lista de espera e alterações administrativas ficam em `sessionStorage`. Nenhuma mensagem é enviada nesse modo. Sem configuração Supabase, o cadastro real fica indisponível, mas a página inicial e a demonstração continuam funcionando. Falhas em lojas reais nunca abrem outra loja nem usam dados demonstrativos.
 
-Rotas: `/` (plataforma), `/cadastro`, `/entrar`, `/painel` (minhas lojas), `/criar-loja`, `/demonstracao` e `/demonstracao/admin`. Cada loja real usa exclusivamente `/:tenant` para clientes e `/:tenant/admin` para gestão; `/admin` redireciona para o painel de lojas. Exemplo: `/barbearia-do-joao`. O hostname nunca é interpretado como loja, inclusive em previews da Vercel. Não existe loja padrão na raiz. `vercel.json` configura o fallback SPA para permitir abrir e recarregar esses links diretamente.
+Rotas: `/` (plataforma), `/cadastro`, `/entrar`, `/painel` (minhas lojas), `/criar-loja`, `/demonstracao` e `/demonstracao/admin`. Cada loja real usa exclusivamente `/:tenant` para clientes e `/:tenant/admin` para configurações; `/:tenant/gestao/` abre a central de atendimentos; `/admin` redireciona para o painel de lojas. Exemplo: `/barbearia-do-joao`. O hostname nunca é interpretado como loja, inclusive em previews da Vercel. Não existe loja padrão na raiz. `vercel.json` configura o fallback SPA para permitir abrir e recarregar esses links diretamente.
 
 ## Conectar ao Supabase
 
 As opções `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` foram adicionadas ao rascunho do ambiente. A URL informada é `https://cgmylsxrjzovgwyrncyv.supabase.co`.
 
-1. **Este projeto já foi configurado:** as migrations `202610220001_initial.sql`, `202610220002_owner_onboarding.sql` e `202610220003_storefront_appearance.sql` foram aplicadas. Veja `docs/SUPABASE_SETUP.md`; não reaplique a migration. Somente para um projeto novo, aplique a migration pelo SQL Editor ou CLI e, opcionalmente, `supabase/seed.sql`.
+1. **Este projeto já foi configurado:** as migrations `202610220001_initial.sql`, `202610220002_owner_onboarding.sql`, `202610220003_storefront_appearance.sql` e `202610240001_store_apps_and_management.sql` foram aplicadas. Veja `docs/SUPABASE_SETUP.md`; não reaplique a migration. Somente para um projeto novo, aplique a migration pelo SQL Editor ou CLI e, opcionalmente, `supabase/seed.sql`.
 2. Nas configurações do ambiente, preencha `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` com a **publishable key** (`sb_publishable_…`) ou a chave pública legada `anon` do projeto. Localmente, copie `.env.example` para `.env.local` e preencha as duas variáveis. Não coloque valores em commits ou no chat.
 3. Reinicie o Vite após preencher as variáveis. Para produção, execute um novo `npm run build`: Vite incorpora variáveis públicas no build. Essas duas opções são públicas por definição; a proteção é feita por RLS. **Nunca use `service_role` ou `sb_secret_…` no front-end.**
 4. Para criar sua própria loja, abra `/cadastro`, confirme o e-mail, entre e escolha **Criar uma loja**. O banco cria atomicamente a loja, a membership admin do usuário autenticado, o primeiro serviço e o profissional. O link exclusivo aparece no painel para copiar. Não há escolha de `user_id` ou de papéis no navegador. Para adicionar um administrador a uma loja já existente, o proprietário do banco pode usar:
@@ -42,6 +42,34 @@ No painel `/:tenant/admin`, abra **Layout**. Há cinco modelos com composições
 - Prévia isolada em celular/computador. As alterações são publicadas somente em **Salvar layout**; **Desfazer** retorna à última versão salva. A demonstração salva apenas nesta sessão.
 
 As escolhas ficam em `tenants.appearance`, com validação de estrutura e RLS admin por loja. O bucket público `storefront-media` armazena apenas imagens de apresentação; envio, listagem e exclusão exigem administração do tenant no prefixo do arquivo. Não envie conteúdo privado. A identidade é aplicada dentro da página da loja, e a preferência de tema do visitante é independente por estabelecimento. O link exclusivo permanece `/<slug>`.
+
+## Instalação por loja e gestão de atendimentos
+
+Cada loja possui dois aplicativos com IDs estáveis e distintos:
+
+| Aplicativo | Caminho salvo | Nome |
+| --- | --- | --- |
+| Cliente | `/<slug>/` | Nome da loja |
+| Gestão | `/<slug>/gestao/` | Gestão Nome da loja |
+
+Links sem a barra final continuam funcionando e são normalizados. O manifesto público é servido por `/api/manifest?tenant=<slug>&app=customer` ou `app=management`, consultando somente nome, slug e aparência publicados. O endpoint precisa de `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` também no runtime da Vercel; nenhuma chave administrativa é necessária. Erros ou lojas inexistentes não retornam outra loja. A página inicial da plataforma conserva seu próprio app.
+
+Em **Layout → Identidade → Ícone do site e do aplicativo**, envie uma imagem de até 5 MB e salve o layout. O navegador gera PNGs quadrados de 192 e 512 pixels, preservando a marca sem recortar. O ícone também atualiza favicon e apple-touch-icon. A demonstração mantém personalizações só na sessão; seu manifesto HTTP usa a identidade de exemplo, pois não publica as alterações locais.
+
+Chrome/Edge em sistemas compatíveis podem instalar aplicativos separados por loja e finalidade no mesmo domínio. No Safari/iOS, a criação de atalhos e o suporte a múltiplos apps dependem da versão e do sistema. Se o convite nativo não estiver disponível, o botão explica a instalação pelo menu. A instalação não altera atalhos antigos que já abriam a raiz: remova-os e reinstale pela página desejada. Nome/ícone de apps instalados podem demorar a atualizar ou exigir reinstalação.
+
+Acesse a central pelo botão **Gestão de agendamentos** no admin ou **Abrir agenda** em Minhas lojas. Ela oferece resumo do período, busca por nome/WhatsApp, filtros de datas (incluindo histórico), status e profissional (também inativos), tabela para desktop e colunas por profissional. Os resultados têm paginação de 50 linhas; totais e receita prevista consideram todo o filtro, não apenas a página. Consultas respeitam o timezone da loja e aceitam períodos de até 366 dias.
+
+Os detalhes permitem corrigir nome/WhatsApp daquela reserva, abrir WhatsApp, reagendar preservando preço/duração e cancelar com confirmação. Alterar contato da reserva não modifica retroativamente o cadastro do cliente nem mensagens já enfileiradas. A tela consulta atualizações a cada 30 segundos e exige conexão para operar; dados privados não entram no cache offline.
+
+Administradores e membros `receptionist` da loja acessam a central. Atendentes não podem alterar layout, catálogo ou permissões. A atribuição do papel continua restrita ao backend confiável, por exemplo pelo SQL Editor, usando o UUID de uma conta Auth verificada e o UUID correto da loja:
+
+```sql
+insert into public.memberships(tenant_id,user_id,role)
+values ('UUID-DA-LOJA','UUID-DO-USUARIO-AUTH','receptionist');
+```
+
+Não há associação por e-mail nem atribuição de papéis pelo navegador. A instalação da gestão nunca dispensa autenticação e autorização no tenant.
 
 ## Permissão para criar o banco pelo ambiente cloud
 
@@ -82,7 +110,7 @@ npm run test:sql           # PostgreSQL 17 isolado: migration, RPCs, RLS e outbo
 
 E2E gera um build `test-demo` separado em `dist-demo/` que força demonstração mesmo com Supabase configurado; não envia reservas ao seu projeto. Usa `/usr/bin/chromium` por padrão neste ambiente. Fora dele, indique `CHROMIUM_PATH` para seu Chromium, ou ajuste Playwright para o browser instalado por `npx playwright install chromium`. Os testes SQL usam um container efêmero sem portas publicadas e sem credenciais de produção. O shim de Auth em `tests/sql/bootstrap.sql` é **somente de teste**, não deve ser aplicado ao Supabase.
 
-O build é servido com `npm run preview -- --port 4173` para validação interna. Para implantar, publique `dist/` em hospedagem estática HTTPS com fallback SPA. Não é necessário Docker para rodar o front-end.
+O build é servido com `npm run preview -- --port 4173` para validação interna. Para implantar na Vercel, publique o repositório: o build gera `dist/` e a função `api/manifest.js` serve os manifestos por loja. Uma hospedagem apenas estática precisa de um endpoint equivalente para esses manifestos, além do fallback SPA. Não é necessário Docker para rodar o front-end.
 
 ## Módulos
 

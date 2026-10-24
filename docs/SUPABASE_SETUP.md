@@ -6,7 +6,7 @@ Projeto: `cgmylsxrjzovgwyrncyv`. Configuração aplicada em 22/10/2026 pela API 
 
 A migration `202610220001_initial.sql` foi aplicada em uma transação, juntamente com o seed do catálogo inicial. O histórico foi registrado em `supabase_migrations.schema_migrations`, versão `202610220001`, nome `initial`.
 
-Foram confirmadas 11 tabelas com Row Level Security habilitado: `tenants`, `memberships`, `services`, `professionals`, `professional_services`, `customers`, `bookings`, `time_blocks`, `waitlist`, `products` e `integration_outbox`. Há 15 políticas públicas e 13 funções públicas da aplicação, incluindo o provisionamento autenticado de novas lojas. A extensão `btree_gist` suporta a constraint que impede sobreposição de horários.
+Foram confirmadas 11 tabelas com Row Level Security habilitado: `tenants`, `memberships`, `services`, `professionals`, `professional_services`, `customers`, `bookings`, `time_blocks`, `waitlist`, `products` e `integration_outbox`. Há 15 políticas públicas iniciais; as migrations posteriores acrescentam as funções e políticas descritas abaixo. O provisionamento autenticado e a personalização por loja foram acrescentados pelas migrations posteriores. A extensão `btree_gist` suporta a constraint que impede sobreposição de horários.
 
 O catálogo contém um estabelecimento inicial fictício (Studio Aurora), seis serviços e três profissionais. Ele é um ponto de partida, não representa dados reais de uma empresa. Personalize-o antes de divulgar o link. Nenhum cliente ou agendamento de teste foi persistido.
 
@@ -47,3 +47,16 @@ A migration `202610220003_storefront_appearance.sql` foi aplicada e registrada. 
 Foi criado o bucket **público** `storefront-media`, limitado a JPG/PNG/WebP de 5 MB por arquivo. Três políticas restringem insert/select/delete de objetos autenticados ao administrador da loja cujo UUID inicia o caminho; URLs públicas são destinadas às imagens de apresentação. O aplicativo gera nomes únicos e não sobrescreve arquivos. Imagens substituídas ficam disponíveis para limpeza posterior, evitando quebrar uma versão ainda publicada.
 
 Validação: suíte SQL isolada com dois administradores e tenants distintos, tentativa de edição/upload cruzados, edição anônima e entradas inválidas; escrita autenticada no projeto real foi testada com rollback, preservando a identidade existente. Bucket, coluna, políticas e histórico foram confirmados no projeto. A publicação no front-end depende do novo build/deploy na Vercel.
+
+
+## Apps por loja e central de atendimentos — 24/10/2026
+
+A migration `202610240001_store_apps_and_management.sql` foi aplicada e registrada. A validação de aparência aceita `faviconUrl` e `icon192Url`, reutilizando o bucket e as políticas de imagem existentes. PNGs com nomes únicos evitam que uma versão instalada retenha o arquivo antigo pelo mesmo URL.
+
+O papel de membership `receptionist` foi adicionado. `is_tenant_operator` permite a administradores e atendentes da loja consultar reservas, cancelar, corrigir o contato e usar disponibilidade/reagendamento. As políticas não concedem acesso ao catálogo privado de outra loja, configurações, clientes, outbox ou memberships alheias. Preço/duração continuam protegidos e a regra de conflito de horários foi preservada.
+
+`management_bookings` valida tenant, datas e filtros, aplica limites de consulta de 366 dias e 50 linhas por página e calcula totais para todo o filtro. `update_booking_contact` aceita apenas nome válido e WhatsApp brasileiro normalizado, atuando na reserva daquele tenant. As funções são executáveis apenas por usuários autenticados; a gestão continua proibida a `anon`.
+
+Validação: suíte SQL isolada com 52 reservas, paginação, totais, permissões de atendente, tentativa de acesso cruzado, alteração de contato, disponibilidade e reagendamento/cancelamento. No projeto real, histórico, funções e validação de ícones foram confirmados; consulta autenticada da gestão testada com rollback. Manifestos reais de cliente e gestão retornaram HTTP 200 com nome, ID, escopo e caminho da loja corretos, sem gravar dados de teste.
+
+A Vercel deve publicar também `api/manifest.js`, além de `dist/`. O runtime da função precisa das mesmas duas variáveis públicas usadas no build. O endpoint só consulta a identidade pública via RLS; nunca usa `service_role`. No ambiente cloud, Node 24 precisa de `NODE_USE_ENV_PROXY=1` para testes desse endpoint com dados remotos, preservando o proxy e a CA do ambiente. Isso não é necessário no runtime normal da Vercel.
